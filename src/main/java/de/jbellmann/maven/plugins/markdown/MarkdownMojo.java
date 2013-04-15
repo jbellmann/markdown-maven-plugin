@@ -1,6 +1,8 @@
 package de.jbellmann.maven.plugins.markdown;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
@@ -9,18 +11,23 @@ import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 
+import org.codehaus.plexus.util.FileUtils;
+import org.codehaus.plexus.util.IOUtil;
+
 import com.github.rjeschke.txtmark.Processor;
 
 import com.google.common.io.ByteStreams;
 
 /**
  * @author  Joerg Bellmann
- * @goal    gen generate
+ * @goal    render
  */
 public class MarkdownMojo extends AbstractMojo {
 
     private static final String BEFORE_SNIPPET = "BEFORE_SNIPPET.txt";
     private static final String AFTER_SNIPPET = "AFTER_SNIPPET.txt";
+
+    private static final String[] STYLE_FILES = new String[] {"md.css", "md2.css", "md.js", "md2.js"};
 
     private static final String TARGET_FORMAT = "html";
 
@@ -71,6 +78,20 @@ public class MarkdownMojo extends AbstractMojo {
                 }
             }
 
+            for (String style : STYLE_FILES) {
+                copyClasspathResourceToTarget(style);
+            }
+
+            File images = new File(markdownDirectory, "images");
+            if (images.exists() && images.isDirectory()) {
+                try {
+                    FileUtils.copyDirectoryStructure(images, new File(markdownTargetDirectory, "images"));
+                } catch (IOException e) {
+                    execptionOccurred = true;
+                    getLog().error(e.getMessage(), e);
+                }
+            }
+
             if (execptionOccurred && failOnError) {
                 throw new MojoExecutionException("Errors occurred when processing files.");
             }
@@ -86,5 +107,16 @@ public class MarkdownMojo extends AbstractMojo {
         }
 
         return result;
+    }
+
+    protected void copyClasspathResourceToTarget(final String filename) {
+        try {
+            IOUtil.copy(getClass().getResourceAsStream(filename),
+                new FileOutputStream(new File(markdownTargetDirectory, filename)));
+        } catch (FileNotFoundException e) {
+            getLog().error(e.getMessage());
+        } catch (IOException e) {
+            getLog().error(e.getMessage());
+        }
     }
 }
